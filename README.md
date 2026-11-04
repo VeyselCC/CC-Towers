@@ -32,7 +32,16 @@ Während des Spiels siehst du live, wie weit die anderen sind, und kannst Emojis
 
 Der Server prüft jeden Zug selbst. Ungültige Züge oder falsche Punktzahlen sind dadurch nicht möglich.
 
-## Starten
+## Sofort spielen (ohne eigenen Server)
+
+Das Spiel ist als claude.ai-Artifact veröffentlicht: **https://claude.ai/artifact/FashYrL3JVpGCbG6xiB6c9**
+
+- Solo funktioniert sofort.
+- Für den Mehrspieler-Modus teilst du die Seite über das **Share-Menü** des Artifacts mit deinen Freunden. Sie brauchen dafür ein claude.ai-Konto. Dann erstellst du einen Raum und nennst ihnen den 4-stelligen Code.
+- Technisch läuft der Mehrspieler-Modus dort über die eingebaute „room“-Funktion von claude.ai statt über `server.js`. Der Browser des Hosts übernimmt die Rolle des Servers, und jeder Browser prüft alle Züge durch Nachspielen ab dem gemeinsamen Seed. Verlässt der Host die Seite, übernimmt automatisch ein anderer Spieler.
+- Neu bauen nach Änderungen: `npm run build:artifact` erzeugt `artifact/space-towers.html`.
+
+## Starten (eigener Server)
 
 Du brauchst nur [Node.js](https://nodejs.org) ab Version 18. Weitere Pakete sind nicht nötig.
 
@@ -76,3 +85,5 @@ npm test   # Tests für Spiellogik und Server
 | `public/app.js` | Oberfläche, Animationen, Sound, Netzwerk |
 | `public/style.css` | Design |
 | `server.js` | HTTP- und WebSocket-Server ohne Abhängigkeiten, Spielräume |
+| `public/room-transport.js` | Mehrspieler über claude.ai „room“, wenn die Seite als Artifact läuft |
+| `scripts/build-artifact.js` | baut die Einzeldatei `artifact/space-towers.html` |
