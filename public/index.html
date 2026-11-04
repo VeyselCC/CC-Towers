@@ -58,7 +58,7 @@
         <label>Runden
           <select id="set-rounds">
             <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-            <option value="5">5</option><option value="7">7</option><option value="10">10</option>
+            <option value="5">5</option><option value="7">7</option><option value="10" selected>10</option>
           </select>
         </label>
         <label>Zeit pro Runde
@@ -129,21 +129,25 @@
       <li>Tippe eine offene Karte an, deren Wert <b>genau eins höher oder tiefer</b> ist als die oberste Karte der Ablage. Die Farbe ist egal. <br><span class="muted">Beispiel: Auf eine 7 passt eine 6 oder eine 8.</span></li>
       <li>Mit <b>König ↔ Ass</b> darf auf einen König ein Ass folgen und umgekehrt.</li>
       <li>Geht nichts mehr, tippe auf den <b>Nachziehstapel</b>. Die neue Karte liegt dann oben auf der Ablage.</li>
+      <li><b>Bonus-Stapel:</b> Legst du 3 Karten in Folge ab, erscheint rechts ein Bonus-Stapel mit 3 Zusatzkarten. Sie passen der Reihe nach auf die Ablage und verlängern deine Kette. Ziehst du eine neue Karte, verschwindet der Bonus-Stapel.</li>
       <li>Du gewinnst, wenn alle drei Türme abgeräumt sind. Wenn der Stapel leer ist und keine Karte mehr passt, ist das Spiel vorbei.</li>
     </ul>
     <h3>Punkte</h3>
     <ul class="rules">
       <li>Jede Karte in einer <b>Kette</b> bringt mehr: 10, 20, 30 … Punkte. Nachziehen beendet die Kette.</li>
       <li>Turmspitze abgeräumt: <b>+250</b>, alle drei Türme: <b>+1000</b>.</li>
+      <li>Karten vom Bonus-Stapel zählen wie normale Kettenkarten.</li>
       <li>Jede übrige Stapelkarte beim Sieg: <b>+50</b>.</li>
     </ul>
     <h3>Mit Freunden</h3>
     <ul class="rules">
       <li>Erstelle einen Raum und schick den Code oder Link an deine Freunde.</li>
-      <li>Alle bekommen <b>dasselbe Kartenblatt</b>. Es gewinnt, wer die meisten Punkte holt. Bei Gleichstand entscheiden weniger Restkarten.</li>
+      <li>Ein Turnier hat standardmäßig <b>10 Runden</b>. In jeder Runde bekommen alle <b>dasselbe Kartenblatt</b>.</li>
+      <li><b>💀 Totenkopf:</b> Ab 3 Spielern scheidet in bestimmten Runden der Spieler mit den wenigsten Gesamtpunkten aus. Der Totenkopf steht dann neben der Rundenanzeige. Am Ende spielen die besten zwei um den Sieg.</li>
+      <li>Es gewinnt, wer bis zum Schluss dabei ist und die meisten Gesamtpunkte hat.</li>
     </ul>
     <h3>Tastatur</h3>
-    <p class="muted small">Leertaste = Nachziehen · Z = Rückgängig (nur solo) · H = Hilfe · M = Ton</p>
+    <p class="muted small">Leertaste = Nachziehen · B = Bonuskarte · Z = Rückgängig (nur solo) · H = Hilfe · M = Ton</p>
   </template>
 
   <script src="game.js"></script>

@@ -8,13 +8,14 @@ Tri-Peaks-Solitaire im Weltraum, mit normalen Spielkarten. Du spielst allein ode
 - Lege eine offene Karte auf die Ablage, wenn ihr Wert **genau eins höher oder tiefer** ist. Die Farbe ist egal. Auf eine 7 passt also eine 6 oder eine 8.
 - Optional gilt **König ↔ Ass**: Auf einen König darf ein Ass folgen und umgekehrt.
 - Passt keine Karte, ziehst du eine neue vom **Nachziehstapel** (23 Karten).
+- **Bonus-Stapel:** Legst du 3 Karten in Folge ab, erscheint ein Bonus-Stapel mit 3 Zusatzkarten. Sie passen der Reihe nach auf die Ablage und verlängern deine Kette. Ziehst du eine neue Karte, verschwindet er.
 - Ziel: alle drei Türme abräumen, bevor der Stapel leer ist.
 
 ### Punkte
 
 | Aktion | Punkte |
 | --- | --- |
-| Karte in einer Kette (1., 2., 3. …) | 10, 20, 30 … |
+| Karte in einer Kette (1., 2., 3. …), auch vom Bonus-Stapel | 10, 20, 30 … |
 | Turmspitze abgeräumt (1. und 2. Turm) | +250 |
 | Alle drei Türme abgeräumt | +1000 |
 | Jede übrige Stapelkarte beim Sieg | +50 |
@@ -25,8 +26,10 @@ Ziehst du vom Stapel, beginnt die Kette wieder bei 10 Punkten.
 
 1. Auf **Raum erstellen** tippen. Du bekommst einen 4-stelligen Code.
 2. Den **Einladungslink** an deine Freunde schicken, oder sie geben den Code unter **Beitreten** ein.
-3. Als Host stellst du Runden (1–10), Zeit pro Runde und König ↔ Ass ein und startest das Spiel.
-4. Alle bekommen **dasselbe Kartenblatt**. Wer die meisten Punkte holt, gewinnt die Runde. Bei Gleichstand gewinnt, wer weniger Restkarten hat. Am Ende zählt die Gesamtpunktzahl.
+3. Als Host stellst du Runden (Standard **10**), Zeit pro Runde und König ↔ Ass ein und startest das Turnier.
+4. In jeder Runde bekommen alle **dasselbe Kartenblatt**. Die Punkte jeder Runde werden zur Gesamtpunktzahl addiert.
+5. **💀 Totenkopf:** Ab 3 Spielern scheidet nach bestimmten Runden der Spieler mit den wenigsten Gesamtpunkten aus und schaut ab dann zu. Das passiert so oft, dass am Ende zwei Spieler übrig sind, gleichmäßig über das Turnier verteilt (bei 4 Spielern und 10 Runden nach Runde 3 und 7). Neben der Rundenanzeige steht dann der Totenkopf.
+6. Es gewinnt, wer bis zum Schluss dabei ist und die meisten Gesamtpunkte hat.
 
 Während des Spiels siehst du live, wie weit die anderen sind, und kannst Emojis schicken. Lädst du die Seite neu oder bricht kurz die Verbindung ab, kommst du automatisch zurück ins Spiel. Dafür hast du 30 Sekunden Zeit.
 

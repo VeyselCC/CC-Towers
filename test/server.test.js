@@ -150,3 +150,57 @@ test('Zeitlimit beendet die Runde, auch wenn noch jemand spielt', async () => {
   a.send({ t: 'move', m: { type: 'draw' } }); // nach Ablauf ignoriert
   a.ws.close();
 });
+
+test('Totenkopf: bei 3 Spielern scheidet der Letzte aus und spielt nicht mehr mit', async () => {
+  const [a, b, c] = [await client(), await client(), await client()];
+  a.send({ t: 'create', name: 'A' });
+  const wa = await a.wait((m) => m.t === 'welcome');
+  b.send({ t: 'join', code: wa.code, name: 'B' });
+  c.send({ t: 'join', code: wa.code, name: 'C' });
+  const wb = await b.wait((m) => m.t === 'welcome');
+  const wc = await c.wait((m) => m.t === 'welcome');
+  a.send({ t: 'settings', settings: { rounds: 3, timeLimit: 0 } });
+  await a.wait((m) => m.t === 'room' && m.settings.rounds === 3 && m.players.length === 3);
+  const playRound = async (round, ps) => {
+    a.send({ t: 'start' });
+    for (const p of ps) await p.wait((m) => m.t === 'start' && m.round === round);
+    // B legt eine Karte, wenn möglich, damit B vorne liegt; C zieht nur
+    for (const p of ps) p.send({ t: 'giveup' });
+    return a.wait((m) => m.t === 'room' && (m.phase === 'results' || m.phase === 'final') && m.round === round, 3000);
+  };
+  const r1 = await playRound(1, [a, b, c]);
+  assert.deepStrictEqual(r1.elimRounds, [2]);
+  assert.ok(!r1.lastResults.some((r) => r.eliminated));
+  const r2 = await playRound(2, [a, b, c]);
+  const out = r2.lastResults.filter((r) => r.eliminated);
+  assert.strictEqual(out.length, 1);
+  const outId = out[0].id;
+  assert.strictEqual(r2.players.find((p) => p.id === outId).status, 'out');
+  const outClient = [a, b, c][[wa.id, wb.id, wc.id].indexOf(outId)];
+  const stay = [a, b, c].filter((p) => p !== outClient);
+  // Runde 3: der Ausgeschiedene bekommt kein Spiel mehr
+  a.send({ t: 'start' });
+  for (const p of stay) await p.wait((m) => m.t === 'start' && m.round === 3);
+  await assert.rejects(outClient.wait((m) => m.t === 'start' && m.round === 3, 300));
+  outClient.send({ t: 'move', m: { type: 'draw' } }); // wird ignoriert
+  for (const p of stay) p.send({ t: 'giveup' });
+  const fin = await a.wait((m) => m.t === 'room' && m.phase === 'final', 3000);
+  assert.strictEqual(fin.lastResults.length, 2);
+  assert.strictEqual(fin.players.find((p) => p.id === outId).eliminated, 2);
+  a.send({ t: 'lobby' });
+  const lob = await a.wait((m) => m.t === 'room' && m.phase === 'lobby');
+  assert.ok(lob.players.every((p) => !p.eliminated));
+  for (const p of [a, b, c]) p.ws.close();
+});
+
+test('Bonus-Zug wird vom Server geprüft', async () => {
+  const a = await client();
+  a.send({ t: 'create', name: 'Bo' });
+  await a.wait((m) => m.t === 'welcome');
+  a.send({ t: 'settings', settings: { timeLimit: 0 } });
+  a.send({ t: 'start' });
+  await a.wait((m) => m.t === 'start');
+  a.send({ t: 'move', m: { type: 'bonus' } }); // kein Bonus-Stapel -> resync
+  await a.wait((m) => m.t === 'resync');
+  a.ws.close();
+});

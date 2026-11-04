@@ -36,12 +36,13 @@
     for (var i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)];
     return s;
   }
-  function encMove(m) { return m.type === 'draw' ? '.' : ALPH[m.id]; }
+  function encMove(m) { return m.type === 'draw' ? '.' : m.type === 'bonus' ? 'b' : ALPH[m.id]; }
   function decMoves(str) {
     var out = [];
     for (var i = 0; i < str.length; i++) {
       var c = str[i];
       if (c === '.') out.push({ type: 'draw' });
+      else if (c === 'b') out.push({ type: 'bonus' });
       else if (ALPH.indexOf(c) !== -1) out.push({ type: 'play', id: ALPH.indexOf(c) });
     }
     return out;
@@ -176,8 +177,9 @@
             S.isHost = true;
             S.host = {
               hostId: id, phase: 'lobby', round: 0,
-              settings: { rounds: 3, timeLimit: 180, wrap: true },
-              seed: 0, endsAt: 0, parts: [], results: [], totals: {}, rs: {}, ts: Date.now()
+              settings: { rounds: 10, timeLimit: 180, wrap: true },
+              seed: 0, endsAt: 0, parts: [], results: [], totals: {}, rs: {}, ts: Date.now(),
+              all: [], elim: [], out: {}
             };
             push();
             S.welcomed = true;
@@ -231,6 +233,9 @@
             S.host.totals = {};
             S.host.rs = {};
             S.host.parts = [];
+            S.host.all = [];
+            S.host.elim = [];
+            S.host.out = {};
             push();
             recompute();
           }
@@ -240,7 +245,7 @@
           var h = S.host;
           if (!h || h.phase !== 'playing' || h.parts.indexOf(S.me.id) === -1 || S.gu || !S.game) return;
           var m = msg.m || {};
-          var move = m.type === 'draw' ? { type: 'draw' } : { type: 'play', id: parseInt(m.id, 10) };
+          var move = m.type === 'draw' ? { type: 'draw' } : m.type === 'bonus' ? { type: 'bonus' } : { type: 'play', id: parseInt(m.id, 10) };
           if (!G.applyMove(S.game, move)) {
             deliver({ t: 'resync', seed: h.seed, wrap: h.settings.wrap, moves: decMoves(S.mv) });
             return;
@@ -342,11 +347,19 @@
     function startRound() {
       var h = S.host;
       var list = players();
+      if (h.round === 0) {
+        // Turnierstart: wer jetzt da ist, spielt das ganze Turnier
+        h.all = list.map(function (e) { return e.p.id; }).slice(0, MAX_PLAYERS);
+        h.elim = G.eliminationRounds(h.all.length, h.settings.rounds);
+        h.out = {};
+        h.totals = {};
+        h.rs = {};
+      }
       h.round += 1;
       h.phase = 'playing';
       h.seed = G.randomSeed();
       h.results = [];
-      h.parts = list.map(function (e) { return e.p.id; }).slice(0, MAX_PLAYERS);
+      h.parts = (h.all || []).filter(function (id) { return !(h.out && h.out[id]); });
       h.endsAt = h.settings.timeLimit > 0 ? Date.now() + h.settings.timeLimit * 1000 + 1500 : 0;
       push();
       recompute();
@@ -374,6 +387,13 @@
         h.rs[r.id] = (h.rs[r.id] || []).concat([r.score]);
         r.total = h.totals[r.id];
       });
+      // Totenkopf-Runde: der bis dahin Schlechteste scheidet aus
+      if ((h.elim || []).indexOf(h.round) !== -1 && h.round < h.settings.rounds && rows.length > 2) {
+        var outId = G.pickEliminated(rows);
+        h.out = h.out || {};
+        h.out[outId] = h.round;
+        rows.forEach(function (r) { r.eliminated = r.id === outId; });
+      }
       h.results = rows;
       h.phase = h.round >= h.settings.rounds ? 'final' : 'results';
       h.endsAt = 0;
@@ -463,16 +483,18 @@
       var playersOut = Object.keys(ids).map(function (id) {
         var st = stateOf(id, h);
         var inRound = h.parts.indexOf(id) !== -1;
+        var outRound = (h.out && h.out[id]) || 0;
         var status;
         if (h.phase === 'lobby') status = 'lobby';
-        else if (h.phase === 'playing') status = !inRound ? 'waiting' : (st.gu || st.g.status !== 'playing' ? 'done' : 'playing');
-        else status = 'done';
+        else if (h.phase === 'playing') status = outRound && !inRound ? 'out' : !inRound ? 'waiting' : (st.gu || st.g.status !== 'playing' ? 'done' : 'playing');
+        else status = outRound ? 'out' : inRound ? 'done' : 'waiting';
         return {
           id: id,
           name: st.p ? cleanName(st.p.name) : 'Pilot',
           host: id === h.hostId,
           connected: !!st.present,
           status: status,
+          eliminated: h.phase === 'lobby' ? 0 : outRound,
           gaveUp: st.gu,
           score: inRound ? st.g.score : 0,
           remaining: inRound ? G.remaining(st.g) : 28,
@@ -491,6 +513,7 @@
         phase: h.phase,
         round: h.round,
         settings: h.settings,
+        elimRounds: h.elim || [],
         endsAt: h.endsAt ? h.endsAt - S.offset : 0,
         players: playersOut,
         lastResults: h.results || []

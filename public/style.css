@@ -528,3 +528,25 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- Bonus-Stapel & Totenkopf ---------- */
+.bonus-card.bonus-top { cursor: pointer; box-shadow: 0 0 0 2px var(--warn), 0 0 16px rgba(255, 181, 71, 0.55), 0 4px 10px rgba(0, 0, 0, 0.5); }
+.bonus-card.bonus-top::after {
+  content: "BONUS";
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--cw) * 0.24);
+  transform: translateX(-50%);
+  font-family: system-ui, sans-serif;
+  font-size: calc(var(--cw) * 0.12);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #201400;
+  background: var(--warn);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.bonus-card.bonus-top.playable.hint { box-shadow: 0 0 0 2px var(--good), 0 0 18px rgba(62, 230, 168, 0.7), 0 4px 10px rgba(0, 0, 0, 0.5); }
+.bonus-label { color: var(--warn); }
+.opp.out { opacity: 0.45; }
+.skull-note { text-align: center; margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 91, 110, 0.14); border: 1px solid rgba(255, 91, 110, 0.4); }

@@ -18,6 +18,7 @@ const inlined = body.replace(/<script src="([^"]+)"><\/script>/g, (m, src) =>
 
 const icon = 'data:image/svg+xml;base64,' + Buffer.from(read('icon.svg')).toString('base64');
 const out =
+  '<meta charset="utf-8">\n' +
   '<title>Space Towers</title>\n' +
   '<meta name="description" content="Tri-Peaks-Solitaire im Weltraum. Allein oder mit Freunden im Browser.">\n' +
   '<link rel="icon" href="' + icon + '">\n' +

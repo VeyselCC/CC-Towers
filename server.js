@@ -216,7 +216,8 @@ function createRoom() {
     players: new Map(),
     phase: 'lobby', // lobby | playing | results | final
     round: 0,
-    settings: { rounds: 3, timeLimit: 180, wrap: true },
+    settings: { rounds: 10, timeLimit: 180, wrap: true },
+    elimRounds: [],
     seed: 0,
     endsAt: 0,
     timer: null,
@@ -239,7 +240,9 @@ function newPlayer(room, name, ws) {
     joinedAt: Date.now(),
     game: null,
     moves: [],
-    status: 'lobby', // lobby | waiting | playing | done
+    status: 'lobby', // lobby | waiting | out | playing | done
+    inRound: false, // spielt in der laufenden Runde mit
+    eliminated: 0, // Runde, nach der der Spieler ausgeschieden ist
     finishedAt: 0,
     gaveUp: false,
     total: 0,
@@ -247,7 +250,8 @@ function newPlayer(room, name, ws) {
   };
   room.players.set(id, p);
   if (!room.hostId) room.hostId = id;
-  if (room.phase === 'playing') p.status = 'waiting';
+  // Läuft schon ein Turnier, schaut man bis zum nächsten Turnier zu
+  if (room.round > 0) p.status = 'waiting';
   return p;
 }
 
@@ -259,6 +263,7 @@ function publicPlayer(room, p) {
     host: p.id === room.hostId,
     connected: p.connected,
     status: p.status,
+    eliminated: p.eliminated,
     gaveUp: p.gaveUp,
     score: g ? g.score : 0,
     remaining: g ? Game.remaining(g) : 28,
@@ -279,6 +284,7 @@ function roomState(room) {
     phase: room.phase,
     round: room.round,
     settings: room.settings,
+    elimRounds: room.elimRounds,
     endsAt: room.endsAt,
     now: Date.now(),
     players: [...room.players.values()].map((p) => publicPlayer(room, p)),
@@ -319,12 +325,22 @@ function startRound(room) {
   room.lastResults = [];
   const limit = room.settings.timeLimit;
   room.endsAt = limit > 0 ? Date.now() + limit * 1000 + 1500 : 0;
+  if (room.round === 1) {
+    for (const p of room.players.values()) { p.eliminated = 0; p.status = 'lobby'; }
+    room.elimRounds = Game.eliminationRounds(room.players.size, room.settings.rounds);
+  }
   for (const p of room.players.values()) {
-    p.game = Game.newGame(room.seed, { wrap: room.settings.wrap });
+    p.inRound = !p.eliminated && p.status !== 'waiting';
     p.moves = [];
     p.finishedAt = 0;
     p.gaveUp = false;
-    p.status = 'playing';
+    if (p.inRound) {
+      p.game = Game.newGame(room.seed, { wrap: room.settings.wrap });
+      p.status = 'playing';
+    } else {
+      p.game = null;
+      if (p.eliminated) p.status = 'out';
+    }
   }
   room.timer = null;
   if (limit > 0) {
@@ -332,7 +348,7 @@ function startRound(room) {
     if (room.timer.unref) room.timer.unref();
   }
   for (const p of room.players.values()) {
-    if (p.connected) p.ws.send(startMessage(room, p));
+    if (p.connected && p.inRound) p.ws.send(startMessage(room, p));
   }
   scheduleBroadcast(room);
 }
@@ -362,7 +378,7 @@ function rankPlayers(list) {
 function endRound(room) {
   if (room.phase !== 'playing') return;
   clearTimeout(room.timer);
-  const participants = [...room.players.values()].filter((p) => p.game && p.status !== 'waiting');
+  const participants = [...room.players.values()].filter((p) => p.inRound && p.game);
   const ranked = rankPlayers(participants.map((p) => ({
     id: p.id,
     name: p.name,
@@ -380,7 +396,17 @@ function endRound(room) {
     p.roundScores.push(r.score);
     r.total = p.total;
   });
-  for (const p of room.players.values()) p.status = 'done';
+  // Totenkopf-Runde: der bis dahin Schlechteste scheidet aus
+  if (room.elimRounds.includes(room.round) && room.round < room.settings.rounds && ranked.length > 2) {
+    const outId = Game.pickEliminated(ranked);
+    const out = room.players.get(outId);
+    if (out) out.eliminated = room.round;
+    ranked.forEach((r) => { r.eliminated = r.id === outId; });
+  }
+  for (const p of room.players.values()) {
+    if (p.inRound) p.status = p.eliminated ? 'out' : 'done';
+    p.inRound = false;
+  }
   room.lastResults = ranked;
   room.phase = room.round >= room.settings.rounds ? 'final' : 'results';
   room.endsAt = 0;
@@ -407,8 +433,11 @@ function resetToLobby(room) {
   room.round = 0;
   room.endsAt = 0;
   room.lastResults = [];
+  room.elimRounds = [];
   for (const p of room.players.values()) {
     p.game = null;
+    p.inRound = false;
+    p.eliminated = 0;
     p.moves = [];
     p.total = 0;
     p.roundScores = [];
@@ -445,7 +474,7 @@ function handleConnection(ws) {
     r.lastActive = Date.now();
     ensureHost(r);
     ws.send({ t: 'welcome', id: p.id, token: p.token, code: r.code, name: p.name });
-    if (r.phase === 'playing' && p.status !== 'waiting' && p.game) ws.send(startMessage(r, p));
+    if (r.phase === 'playing' && p.inRound && p.game) ws.send(startMessage(r, p));
     broadcast(r, roomState(r));
   }
 
@@ -511,7 +540,7 @@ function handleConnection(ws) {
       case 'move': {
         if (!room || room.phase !== 'playing' || me.status !== 'playing' || !me.game) return;
         const m = msg.m || {};
-        const move = m.type === 'draw' ? { type: 'draw' } : { type: 'play', id: parseInt(m.id, 10) };
+        const move = m.type === 'draw' ? { type: 'draw' } : m.type === 'bonus' ? { type: 'bonus' } : { type: 'play', id: parseInt(m.id, 10) };
         const ev = Game.applyMove(me.game, move);
         if (!ev) {
           // Client ist nicht synchron – kompletten Zustand neu schicken

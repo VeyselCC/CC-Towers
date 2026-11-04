@@ -13,6 +13,7 @@
   var PILE_TOP = 3 * ROW_STEP + CARD_H + 0.4;
   var STOCK_X = 3.55;
   var WASTE_X = 5.45;
+  var BONUS_X = 7.45;
 
   // ------------------------------------------------------------------
   // Hilfsfunktionen
@@ -208,6 +209,14 @@
     sc.id = 'stock-count';
     sc.className = 'stock-count';
     board.appendChild(sc);
+    var bp = document.createElement('div');
+    bp.id = 'bonus';
+    board.appendChild(bp);
+    var bl = document.createElement('div');
+    bl.id = 'bonus-label';
+    bl.className = 'pile-label bonus-label';
+    bl.textContent = 'Bonus';
+    board.appendChild(bl);
     var wl = document.createElement('div');
     wl.id = 'waste-label';
     wl.className = 'pile-label';
@@ -243,6 +252,10 @@
     wl.style.left = (WASTE_X * cw) + 'px';
     wl.style.width = (0.94 * cw) + 'px';
     wl.style.top = ((PILE_TOP + CARD_H + 0.1) * cw) + 'px';
+    var bl = $('#bonus-label');
+    bl.style.left = (BONUS_X * cw) + 'px';
+    bl.style.width = (0.94 * cw) + 'px';
+    bl.style.top = ((PILE_TOP + CARD_H + 0.1) * cw) + 'px';
     render();
   }
 
@@ -279,7 +292,7 @@
     var n = Math.min(3, g.stock.length);
     var html = '';
     for (var i = 0; i < n; i++) {
-      var nudge = prefs.hint && !app.locked && g.status === 'playing' && i === n - 1 && playable.length === 0 ? ' nudge' : '';
+      var nudge = prefs.hint && !app.locked && g.status === 'playing' && i === n - 1 && playable.length === 0 && !G.canPlayBonus(g) ? ' nudge' : '';
       html += '<div class="card back stock-card' + nudge + '" style="left:' + ((STOCK_X - i * 0.035) * cw) + 'px;top:' + ((PILE_TOP - i * 0.035) * cw) + 'px;z-index:' + (30 + i) + '"></div>';
     }
     sc.innerHTML = html;
@@ -295,6 +308,21 @@
       wh += '<div class="' + cardClass(c) + (j === k - 1 ? ' waste-top' : '') + '" style="left:' + ((WASTE_X + j * 0.14) * cw) + 'px;top:' + (PILE_TOP * cw) + 'px;z-index:' + (30 + j) + '">' + faceHTML(c) + '</div>';
     }
     w.innerHTML = wh;
+
+    // Bonus-Stapel (verschwindet beim Nachziehen)
+    var bp = $('#bonus');
+    var bh = '';
+    var bonusOk = !app.locked && G.canPlayBonus(g);
+    for (var b = 0; b < g.bonus.length; b++) {
+      var bc = g.bonus[b];
+      var isTop = b === g.bonus.length - 1;
+      var off = (g.bonus.length - 1 - b) * 0.05;
+      bh += '<div class="' + cardClass(bc) + ' bonus-card' + (isTop ? ' bonus-top open' : ' back') +
+        (isTop && bonusOk ? ' playable' : '') + (prefs.hint ? ' hint' : '') + '" style="left:' + ((BONUS_X + off) * cw) + 'px;top:' + ((PILE_TOP - off) * cw) + 'px;z-index:' + (30 + b) + '"' +
+        (isTop ? ' aria-label="Bonuskarte ' + cardName(bc) + '"' : '') + '>' + faceHTML(bc) + '</div>';
+    }
+    bp.innerHTML = bh;
+    $('#bonus-label').style.visibility = g.bonus.length ? 'visible' : 'hidden';
 
     // HUD
     $('#hud-score').textContent = fmt(g.score);
@@ -344,6 +372,8 @@
     var el = document.createElement('div');
     el.className = 'float-text' + (big ? ' big' : '');
     el.textContent = text;
+    var fw = fx.clientWidth;
+    if (fw) x = Math.max(fw * 0.14, Math.min(fw * 0.86, x));
     el.style.left = x + 'px';
     el.style.top = y + 'px';
     fx.appendChild(el);
@@ -402,7 +432,8 @@
     var cx = from.x + from.w / 2;
     var cy = from.y + from.h / 2;
     floatText(cx, cy, '+' + ev.gained, false);
-    if (ev.streak >= 3 && ev.streak % 3 === 0) floatText(cx, cy - app.cw * 0.6, ev.streak + 'er-Kette!', true);
+    if (ev.bonusPile) setTimeout(function () { floatText(cx, cy - app.cw * 0.6, 'Bonus-Stapel!', true); sfx.peak(); }, 120);
+    else if (ev.streak >= 3 && ev.streak % 3 === 0) floatText(cx, cy - app.cw * 0.6, ev.streak + 'er-Kette!', true);
     if (ev.bonus) {
       setTimeout(function () {
         floatText(cx, cy + app.cw * 0.3, (ev.bonus >= G.SCORE.allPeaksBonus ? 'Alle Türme! +' : 'Turm geräumt! +') + ev.bonus, true);
@@ -412,6 +443,28 @@
     } else {
       sfx.play(ev.streak);
     }
+    afterMove();
+  }
+
+  function onBonus() {
+    var g = app.game;
+    if (!g || app.locked || g.status !== 'playing' || !g.bonus.length) return;
+    var el = $('#bonus .bonus-top');
+    if (!G.canPlayBonus(g)) {
+      if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+      sfx.bad();
+      return;
+    }
+    var from = relRect(el);
+    var ev = G.playBonus(g);
+    if (app.mode === 'multi') net.send({ t: 'move', m: { type: 'bonus' } });
+    render();
+    fly(from, $('#waste .waste-top'), faceHTML(ev.card), cardClass(ev.card));
+    var cx = from.x + from.w / 2;
+    var cy = from.y + from.h / 2;
+    floatText(cx, cy, '+' + ev.gained, false);
+    if (ev.bonusPile) setTimeout(function () { floatText(cx, cy - app.cw * 0.6, 'Bonus-Stapel!', true); sfx.peak(); }, 120);
+    sfx.play(ev.streak);
     afterMove();
   }
 
@@ -456,6 +509,7 @@
   board.addEventListener('click', function (e) {
     var card = e.target.closest('.card');
     if (card && card.dataset.id !== undefined && card.parentNode === board) return onCard(+card.dataset.id);
+    if (e.target.closest('#bonus .bonus-top')) return onBonus();
     if (e.target.closest('.stock-card') || e.target.closest('#stock')) return onStock();
   });
 
@@ -758,10 +812,11 @@
       return;
     }
     if (room.phase === 'playing') {
-      if (p && p.status === 'waiting') {
-        if (!$('#screen-lobby').classList.contains('active') && !app.game) showScreen('lobby');
-        renderLobby(room);
-        showWaiting(true);
+      if (p && (p.status === 'waiting' || p.status === 'out')) {
+        if (p.status === 'waiting' && !$('#screen-lobby').classList.contains('active') && !app.game) showScreen('lobby');
+        if (p.status === 'waiting') renderLobby(room);
+        else if (app.game) { app.locked = true; render(); renderOpponents(room); }
+        showWaiting(p.status === 'out' ? 'out' : true);
         return;
       }
       if (p && p.status === 'done' && app.game && !app.locked) {
@@ -803,7 +858,13 @@
     var hint = '';
     if (!host) hint = 'Warte, bis der Host das Spiel startet …';
     else if (room.players.length < 2) hint = 'Teile den Code mit deinen Freunden. Du kannst auch allein starten.';
-    if (room.phase === 'playing') hint = 'Eine Runde läuft gerade. Du spielst ab der nächsten Runde mit.';
+    if (room.phase !== 'lobby') hint = 'Ein Turnier läuft gerade. Du spielst beim nächsten Turnier mit und kannst so lange zuschauen.';
+    else if (room.players.length >= 3) (function () {
+      var er = G.eliminationRounds(room.players.length, s.rounds);
+      if (!er.length) return;
+      var list = er.length === 1 ? 'Runde ' + er[0] : 'den Runden ' + er.slice(0, -1).join(', ') + ' und ' + er[er.length - 1];
+      hint += (hint ? ' ' : '') + '💀 Bei ' + room.players.length + ' Spielern scheidet nach ' + list + ' jeweils der Spieler mit den wenigsten Gesamtpunkten aus.';
+    })();
     $('#lobby-hint').textContent = hint;
   }
 
@@ -815,7 +876,8 @@
 
   function statusText(p) {
     if (!p.connected) return ['offline', 'off'];
-    if (p.status === 'waiting') return ['wartet', ''];
+    if (p.status === 'out' || p.eliminated) return ['💀 raus', 'off'];
+    if (p.status === 'waiting') return ['schaut zu', ''];
     if (p.result === 'won') return ['geschafft!', 'won'];
     if (p.gaveUp) return ['aufgegeben', 'stuck'];
     if (p.result === 'stuck') return ['keine Züge', 'stuck'];
@@ -824,19 +886,38 @@
   }
 
   function renderOpponents(room) {
-    var list = room.players.slice().filter(function (p) { return p.status !== 'waiting' || room.phase !== 'playing'; });
+    var list = room.players.slice().filter(function (p) { return p.status !== 'waiting' && !p.eliminated; });
     list.sort(function (a, b) { return b.score - a.score || a.remaining - b.remaining; });
+    list = list.concat(room.players.filter(function (p) { return p.eliminated; }));
     var html = list.map(function (p) {
       var st = statusText(p);
       var pct = Math.round(((28 - p.remaining) / 28) * 100);
-      return '<div class="opp' + (p.id === net.id ? ' me' : '') + '" data-pid="' + p.id + '">' +
+      return '<div class="opp' + (p.id === net.id ? ' me' : '') + (p.eliminated ? ' out' : '') + '" data-pid="' + p.id + '">' +
         '<div class="top"><span class="name">' + esc(p.name) + (p.host ? ' 👑' : '') + '</span><span class="score">' + fmt(p.score) + '</span></div>' +
         '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
         '<div class="meta"><span>' + p.remaining + ' übrig · Stapel ' + p.stock + '</span><span class="state ' + st[1] + '">' + st[0] + '</span></div>' +
         '</div>';
     }).join('');
     $('#opponents').innerHTML = html;
-    $('#hud-round').textContent = room.round + '/' + room.settings.rounds;
+    var skull = (room.elimRounds || []).indexOf(room.round) !== -1 && room.phase === 'playing';
+    $('#hud-round').textContent = room.round + '/' + room.settings.rounds + (skull ? ' 💀' : '');
+    $('#hud-round').title = skull ? 'Nach dieser Runde scheidet der Letzte aus' : '';
+  }
+
+  // Endstand: Wer bis zum Schluss dabei war vor den Ausgeschiedenen,
+  // Ausgeschiedene nach Zeitpunkt (später = besser), dann Punkte.
+  function finalRanking(room) {
+    return room.players.filter(function (p) { return p.roundScores && p.roundScores.length; })
+      .sort(function (a, b) {
+        var ea = a.eliminated || Infinity;
+        var eb = b.eliminated || Infinity;
+        return eb - ea || b.total - a.total;
+      });
+  }
+
+  function nextSkull(room) {
+    var next = (room.elimRounds || []).filter(function (r) { return r > room.round; })[0];
+    return next ? '💀 Nächster Totenkopf: nach Runde ' + next : '';
   }
 
   function standingsTable(rows, opts) {
@@ -846,7 +927,7 @@
       (opts.showTotal ? '<th>Gesamt</th>' : '') + (opts.totalOnly ? '' : '<th>Rest</th>') + '</tr></thead><tbody>' +
       rows.map(function (r, i) {
         return '<tr class="' + (r.id === net.id ? 'me' : '') + '"><td class="medal">' + (medals[i] || (i + 1) + '.') + '</td>' +
-          '<td>' + esc(r.name) + (r.result === 'won' ? ' 🚀' : '') + '</td>' +
+          '<td>' + esc(r.name) + (r.result === 'won' ? ' 🚀' : '') + (r.eliminated ? ' 💀' : '') + '</td>' +
           '<td>' + fmt(opts.totalOnly ? r.total : r.score) + '</td>' +
           (opts.showTotal ? '<td>' + fmt(r.total) + '</td>' : '') +
           (opts.totalOnly ? '' : '<td>' + r.remaining + '</td>') + '</tr>';
@@ -858,11 +939,12 @@
     if (!room || room.phase !== 'playing') return;
     if (app.peeking && !spectator) return;
     var g = app.game;
-    var rows = room.players.filter(function (p) { return p.status !== 'waiting'; })
+    var rows = room.players.filter(function (p) { return p.status !== 'waiting' && p.status !== 'out'; })
       .sort(function (a, b) { return b.score - a.score || a.remaining - b.remaining; });
     var playing = rows.filter(function (p) { return p.status === 'playing' && p.connected; }).length;
     var head;
-    if (spectator) head = '<h2>Runde läuft</h2><p class="subtitle">Du bist ab der nächsten Runde dabei.</p>';
+    if (spectator === 'out') head = '<h2>💀 Ausgeschieden</h2><p class="subtitle">Du schaust bis zum Ende des Turniers zu. Runde ' + room.round + ' von ' + room.settings.rounds + '.</p>';
+    else if (spectator) head = '<h2>Turnier läuft</h2><p class="subtitle">Du spielst beim nächsten Turnier mit. Runde ' + room.round + ' von ' + room.settings.rounds + '.</p>';
     else if (g && g.status === 'won') head = '<h2>🚀 Geschafft!</h2><div class="big-score">' + fmt(g.score) + '</div>';
     else head = '<h2>' + (g && g.status === 'stuck' ? 'Keine Züge mehr' : 'Fertig') + '</h2><div class="big-score">' + fmt(g ? g.score : 0) + '</div>';
     openOverlay(
@@ -880,9 +962,9 @@
     var host = isHost();
     var html;
     if (final) {
-      var totals = res.slice().sort(function (a, b) { return b.total - a.total; });
+      var totals = finalRanking(room);
       var winner = totals[0];
-      var tie = totals.length > 1 && totals[1].total === winner.total;
+      var tie = totals.length > 1 && totals[1].total === winner.total && !totals[1].eliminated && !winner.eliminated;
       if (overlayKind !== 'final') { sfx.win(); setTimeout(celebrate, 200); }
       html = '<h2>🏆 ' + (!winner ? 'Spiel vorbei' : tie ? 'Unentschieden!' : esc(winner.name) + ' gewinnt!') + '</h2>' +
         (room.settings.rounds > 1 ? '<p class="subtitle">Endstand nach ' + room.settings.rounds + ' Runden</p>' : '') +
@@ -893,9 +975,12 @@
         '<button class="btn" data-act="leave">Raum verlassen</button></div>';
       openOverlay(html, 'final');
     } else {
+      var outRow = res.filter(function (r) { return r.eliminated; })[0];
       html = '<h2>Runde ' + room.round + ' von ' + room.settings.rounds + '</h2>' +
         (res[0] ? '<p class="subtitle">' + (res[1] && res[1].score === res[0].score && res[1].remaining === res[0].remaining ? 'Gleichstand an der Spitze!' : 'Rundensieg: <b>' + esc(res[0].name) + '</b>') + '</p>' : '') +
+        (outRow ? '<p class="skull-note">💀 <b>' + esc(outRow.name) + '</b> hat die wenigsten Gesamtpunkte und scheidet aus' + (outRow.id === net.id ? '. Du schaust ab jetzt zu.' : '.') + '</p>' : '') +
         standingsTable(res, { showTotal: true }) +
+        (nextSkull(room) ? '<p class="subtitle small">' + nextSkull(room) + '</p>' : '') +
         '<div class="actions">' +
         (host ? '<button class="btn primary" data-act="next">Nächste Runde</button>' : '<p class="subtitle">Warte auf den Host …</p>') +
         '<button class="btn" data-act="leave">Raum verlassen</button></div>';
@@ -1001,6 +1086,7 @@
     if (e.key === 'Escape') { if (overlayKind === 'menu' || overlayKind === 'rules' || overlayKind === 'confirm') closeOverlay(); else if (!overlayKind) showMenu(); return; }
     if (overlayKind && overlayKind !== 'waiting') return;
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onStock(); }
+    else if (e.key === 'b' || e.key === 'B') onBonus();
     else if (e.key === 'z' || e.key === 'Z' || (e.key === 'Backspace')) onUndo();
     else if (e.key === 'h' || e.key === 'H') $('#btn-hint').click();
     else if (e.key === 'm' || e.key === 'M') $('#btn-sound').click();

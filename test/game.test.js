@@ -147,9 +147,58 @@ test('Zufällige Partien laufen ohne Fehler bis zum Ende', () => {
     while (g.status === 'playing' && guard++ < 200) {
       const p = G.playableIds(g);
       if (p.length) G.play(g, p[0]);
+      else if (G.canPlayBonus(g)) G.playBonus(g);
       else G.draw(g);
     }
     assert.notStrictEqual(g.status, 'playing', 'Seed ' + seed);
-    assert.strictEqual(G.remaining(g) + g.waste.length + g.stock.length, 52);
+    const realWaste = g.waste.filter((c) => !c.bonus).length;
+    assert.strictEqual(G.remaining(g) + realWaste + g.stock.length, 52);
   }
+});
+
+test('Bonus-Stapel nach 3 Karten in Folge, verschwindet beim Nachziehen', () => {
+  const ranks = new Array(28).fill(13);
+  ranks[18] = 6; ranks[19] = 5; ranks[20] = 4;
+  const g = forceGame(ranks, 7, [10, 11], false);
+  G.play(g, 18);
+  G.play(g, 19);
+  assert.strictEqual(g.bonus.length, 0);
+  const ev = G.play(g, 20);
+  assert.ok(ev.bonusPile);
+  assert.strictEqual(g.bonus.length, G.SCORE.bonusSize);
+  assert.ok(G.canPlayBonus(g)); // oberste Bonuskarte passt immer
+  const before = g.score;
+  const b = G.playBonus(g);
+  assert.strictEqual(b.gained, 40); // 4. Karte der Kette
+  assert.strictEqual(g.score, before + 40);
+  assert.strictEqual(g.bonus.length, G.SCORE.bonusSize - 1);
+  G.draw(g);
+  assert.strictEqual(g.bonus.length, 0);
+  assert.strictEqual(g.streak, 0);
+  // gleicher Seed -> gleicher Bonus-Stapel
+  const g2 = forceGame(ranks, 7, [10, 11], false);
+  G.play(g2, 18); G.play(g2, 19); G.play(g2, 20);
+  const g3 = forceGame(ranks, 7, [10, 11], false);
+  G.play(g3, 18); G.play(g3, 19); G.play(g3, 20);
+  assert.deepStrictEqual(g2.bonus, g3.bonus);
+  // Undo stellt den Bonus-Stapel wieder her
+  G.playBonus(g2);
+  G.undo(g2);
+  assert.deepStrictEqual(g2.bonus, g3.bonus);
+});
+
+test('Totenkopf-Runden: so viele scheiden aus, dass 2 übrig bleiben', () => {
+  assert.deepStrictEqual(G.eliminationRounds(2, 10), []);
+  assert.deepStrictEqual(G.eliminationRounds(3, 10), [5]);
+  assert.deepStrictEqual(G.eliminationRounds(4, 10), [3, 7]);
+  assert.deepStrictEqual(G.eliminationRounds(6, 10), [2, 4, 6, 8]);
+  const r8 = G.eliminationRounds(8, 10);
+  assert.strictEqual(r8.length, 6);
+  assert.ok(r8.every((r) => r >= 1 && r < 10));
+  assert.deepStrictEqual(G.eliminationRounds(4, 1), []);
+  assert.strictEqual(G.pickEliminated([
+    { id: 'a', total: 300, score: 100, remaining: 5 },
+    { id: 'b', total: 200, score: 150, remaining: 3 },
+    { id: 'c', total: 200, score: 90, remaining: 9 }
+  ]), 'c');
 });
