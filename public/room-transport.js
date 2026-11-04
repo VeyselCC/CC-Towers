@@ -54,10 +54,18 @@
     g.history = [];
     return g;
   }
+  // claude.ai lehnt Presence mit Steuer- oder unsichtbaren Zeichen ab
   function cleanName(n) {
-    n = String(n || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16);
+    n = String(n || '')
+      .replace(/[\u0000-\u001f\u007f-\u009f<>\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb]/g, '')
+      .replace(/[\ue000-\uf8ff]/g, '')
+      .trim().slice(0, 16);
     return n || 'Pilot';
   }
+  // IDs werden als Objektschlüssel in der Presence verwendet und müssen
+  // deshalb wie Bezeichner aussehen (mit Buchstaben beginnen).
+  var ID_RE = /^p[a-z0-9]{11}$/;
+  function newId() { return 'p' + rand(11, 'abcdefghijklmnopqrstuvwxyz0123456789'); }
   function store(key, val) {
     try {
       if (val === undefined) return JSON.parse(sessionStorage.getItem(key));
@@ -84,6 +92,7 @@
       game: null,
       startKey: null,
       cache: {}, // id -> {p: presence, seen: ms}
+      presentIds: {},
       emoteSeen: {},
       lastRoomJson: '',
       unsubs: [],
@@ -135,7 +144,9 @@
     function push() {
       if (!S.named) return;
       if (S.isHost && S.host) S.host.ts = Date.now();
-      S.named.presence(myPresence()).catch(function () {});
+      S.named.presence(myPresence()).catch(function (e) {
+        if (window.console) console.warn('Space Towers: Presence abgelehnt', e && (e.code || e.message));
+      });
     }
     function saveMine() {
       store('st-mv-' + S.code + '-' + S.me.id, { rd: S.rd, mv: S.mv, gu: S.gu, seed: S.host ? S.host.seed : 0 });
@@ -159,7 +170,7 @@
         case 'create': {
           if (S.named) return;
           var code = rand(4, CODE_CHARS);
-          var id = rand(12, 'abcdefghijklmnopqrstuvwxyz0123456789');
+          var id = newId();
           enter(code, id, msg.name).then(function (named) {
             if (!named) return;
             S.isHost = true;
@@ -181,7 +192,7 @@
           if (S.named) return;
           var jc = String(msg.code || '').toUpperCase().trim();
           if (!/^[A-Z0-9]{4}$/.test(jc)) return deliver({ t: 'error', msg: 'Raum ' + (jc || '?') + ' wurde nicht gefunden.' });
-          var jid = msg.token || rand(12, 'abcdefghijklmnopqrstuvwxyz0123456789');
+          var jid = ID_RE.test(msg.token || '') ? msg.token : newId();
           enter(jc, jid, msg.name).then(function (named) {
             if (!named) return;
             var saved = store('st-mv-' + jc + '-' + jid);
@@ -295,14 +306,18 @@
       var byId = {};
       S.named.peers().forEach(function (peer) {
         var p = peer.presence || {};
-        if (typeof p.id !== 'string' || !p.id) return;
+        if (typeof p.id !== 'string' || !ID_RE.test(p.id)) return;
         var prev = byId[p.id];
         if (!prev || peer.updatedAt > prev.updatedAt) byId[p.id] = { p: p, updatedAt: peer.updatedAt, isMe: peer.sameTab };
       });
       // eigene Presence immer aktuell einsetzen
       if (S.me) byId[S.me.id] = { p: myPresence(), updatedAt: Date.now(), isMe: true };
       var now = Date.now();
-      Object.keys(byId).forEach(function (id) { S.cache[id] = { p: byId[id].p, seen: now, updatedAt: byId[id].updatedAt }; });
+      S.presentIds = {};
+      Object.keys(byId).forEach(function (id) {
+        S.presentIds[id] = true;
+        S.cache[id] = { p: byId[id].p, seen: now, updatedAt: byId[id].updatedAt };
+      });
       return Object.keys(byId).map(function (id) { return byId[id]; });
     }
 
@@ -321,7 +336,7 @@
       var p = c ? c.p : null;
       var inRound = p && p.rd === h.round && h.round > 0;
       var g = inRound ? replay(h.seed, h.settings.wrap, p.mv) : G.newGame(h.seed || 1, { wrap: h.settings.wrap });
-      return { p: p, g: g, gu: !!(inRound && p.gu), present: c && Date.now() - c.seen < 2500, seen: c ? c.seen : 0 };
+      return { p: p, g: g, gu: !!(inRound && p.gu), present: !!S.presentIds[id], seen: c ? c.seen : 0 };
     }
 
     function startRound() {
