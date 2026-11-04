@@ -3,6 +3,8 @@
   'use strict';
 
   var G = window.SpaceTowers;
+  // Im claude.ai-Artifact gibt es keinen teilbaren Link mit ?room=, nur den Code
+  var CODE_ONLY = !!window.STRoom && !window.ST_STATIC;
   var LAYOUT = G.LAYOUT;
   // Deutsche Kartenbezeichnungen: Ass, Bube, Dame, König
   var RANKS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'B', 'D', 'K'];
@@ -679,7 +681,9 @@
         if (e.code === 4001) {
           self.reset();
           showScreen('home');
-          $('#home-error').textContent = 'Mehrspieler ist in dieser Ansicht nicht verfügbar. Melde dich bei claude.ai an und öffne die Seite dort.';
+          $('#home-error').textContent = window.ST_STATIC
+            ? 'Der Mehrspieler-Dienst ist gerade nicht erreichbar. Prüfe deine Internetverbindung und lade die Seite neu.'
+            : 'Mehrspieler ist in dieser Ansicht nicht verfügbar. Melde dich bei claude.ai an und öffne die Seite dort.';
           return;
         }
         if (!self.wantConnected) return;
@@ -707,7 +711,7 @@
       app.game = null;
       closeOverlay();
       showScreen('home');
-      if (!window.STRoom) { try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignore */ } }
+      if (!CODE_ONLY) { try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignore */ } }
     },
 
     reset: function () {
@@ -732,7 +736,7 @@
           this.token = msg.token;
           this.code = msg.code;
           session({ code: msg.code, token: msg.token });
-          if (!window.STRoom) { try { history.replaceState(null, '', '?room=' + msg.code); } catch (e) { /* ignore */ } }
+          if (!CODE_ONLY) { try { history.replaceState(null, '', '?room=' + msg.code); } catch (e) { /* ignore */ } }
           $('#home-error').textContent = '';
           $('#toast').classList.remove('show');
           break;
@@ -836,11 +840,11 @@
 
   function renderLobby(room) {
     $('#lobby-code').textContent = room.code;
-    var link = window.STRoom
+    var link = CODE_ONLY
       ? 'Schick deinen Freunden den Link zu dieser Seite und den Code ' + room.code + '.'
       : location.origin + location.pathname + '?room=' + room.code;
     $('#copy-hint').textContent = link;
-    $('#btn-copy').textContent = window.STRoom ? 'Code kopieren' : 'Einladungslink kopieren';
+    $('#btn-copy').textContent = CODE_ONLY ? 'Code kopieren' : 'Einladungslink kopieren';
     $('#lobby-count').textContent = '(' + room.players.length + '/8)';
     $('#lobby-players').innerHTML = room.players.map(function (p) {
       return '<li><span class="dot' + (p.connected ? '' : ' off') + '"></span>' +
@@ -1053,9 +1057,9 @@
   $('#btn-rules').addEventListener('click', showRules);
 
   $('#btn-copy').addEventListener('click', function () {
-    var link = window.STRoom ? net.code : $('#copy-hint').textContent;
-    function ok() { toast(window.STRoom ? 'Code ' + net.code + ' kopiert' : 'Link kopiert – schick ihn deinen Freunden!'); }
-    if (!window.STRoom && navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+    var link = CODE_ONLY ? net.code : $('#copy-hint').textContent;
+    function ok() { toast(CODE_ONLY ? 'Code ' + net.code + ' kopiert' : 'Link kopiert – schick ihn deinen Freunden!'); }
+    if (!CODE_ONLY && navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
       navigator.share({ title: 'Space Towers', text: 'Spiel mit mir Space Towers! Raumcode: ' + net.code, url: link }).catch(function () {});
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(link).then(ok, function () { toast('Code: ' + net.code); });

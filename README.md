@@ -44,6 +44,15 @@ Das Spiel ist als claude.ai-Artifact veröffentlicht: **https://claude.ai/artifa
 - Technisch läuft der Mehrspieler-Modus dort über die eingebaute „room“-Funktion von claude.ai statt über `server.js`. Der Browser des Hosts übernimmt die Rolle des Servers, und jeder Browser prüft alle Züge durch Nachspielen ab dem gemeinsamen Seed. Verlässt der Host die Seite, übernimmt automatisch ein anderer Spieler.
 - Neu bauen nach Änderungen: `npm run build:artifact` erzeugt `artifact/space-towers.html`.
 
+## Auf GitHub Pages (kostenlos, ohne Server)
+
+Die Datei `dist/pages/index.html` (gebaut mit `npm run build:pages`) liegt im Branch `gh-pages`. Ist GitHub Pages für diesen Branch eingeschaltet, läuft das Spiel unter **https://veyselcc.github.io/CC-Towers/**.
+
+- Mehrspieler läuft dort direkt zwischen den Browsern (Peer-to-Peer über den kostenlosen Dienst [PeerJS](https://peerjs.com)). Deine Freunde brauchen kein Konto: Raum erstellen, Einladungslink schicken, fertig.
+- Der Browser des Raumerstellers ist der Knotenpunkt. Schließt er die Seite, übernimmt automatisch ein anderer Spieler.
+- In manchen Firmen- oder Schulnetzen sind solche Direktverbindungen gesperrt. Dann hilft ein anderes Netz (z. B. mobile Daten) oder der eigene Server unten.
+- Aktualisieren nach Änderungen: `npm run build:pages`, dann den Inhalt von `dist/pages/` in den Branch `gh-pages` übernehmen.
+
 ## Starten (eigener Server)
 
 Du brauchst nur [Node.js](https://nodejs.org) ab Version 18. Weitere Pakete sind nicht nötig.
