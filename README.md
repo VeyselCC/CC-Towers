@@ -80,8 +80,6 @@ Andere Node-Hoster wie Railway oder Fly.io funktionieren genauso: Startbefehl `n
 | --- | --- |
 | Klick / Tippen | Karte ablegen bzw. nachziehen |
 | Leertaste | Nachziehen |
-| Z | Rückgängig (nur solo) |
-| H | Hilfe (spielbare Karten hervorheben) an/aus |
 | M | Ton an/aus |
 | Esc | Menü |
 

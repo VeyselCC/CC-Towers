@@ -352,7 +352,6 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .card.back > * { display: none; }
 .card.open { cursor: pointer; }
 .card.open:hover { transform: translateY(-3px); }
-.card.playable.hint { box-shadow: 0 0 0 2px var(--good), 0 0 16px rgba(62, 230, 168, 0.65), 0 4px 10px rgba(0, 0, 0, 0.5); }
 .card.reveal { animation: flip 0.35s ease; }
 .card.shake { animation: shake 0.3s ease; }
 
@@ -377,7 +376,6 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
   font-size: calc(var(--cw) * 0.4);
 }
 .stock-card { cursor: pointer; }
-.stock-card.nudge { box-shadow: 0 0 0 2px var(--warn), 0 0 18px rgba(255, 181, 71, 0.6); }
 .stock-count {
   position: absolute;
   font-weight: 800;
@@ -546,7 +544,6 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
   border-radius: 999px;
   padding: 1px 6px;
 }
-.bonus-card.bonus-top.playable.hint { box-shadow: 0 0 0 2px var(--good), 0 0 18px rgba(62, 230, 168, 0.7), 0 4px 10px rgba(0, 0, 0, 0.5); }
 .bonus-label { color: var(--warn); }
 .opp.out { opacity: 0.45; }
 .skull-note { text-align: center; margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 91, 110, 0.14); border: 1px solid rgba(255, 91, 110, 0.4); }

@@ -63,7 +63,8 @@
   // ------------------------------------------------------------------
   // Einstellungen
   // ------------------------------------------------------------------
-  var prefs = Object.assign({ hint: true, sound: true, name: '' }, store('prefs') || {});
+  var prefs = Object.assign({ sound: true, name: '' }, store('prefs') || {});
+  delete prefs.hint; // keine Spielhilfen mehr
   function savePrefs() { store('prefs', prefs); }
 
   // ------------------------------------------------------------------
@@ -279,7 +280,6 @@
       el.classList.toggle('back', !up);
       el.classList.toggle('open', up);
       el.classList.toggle('playable', playable.indexOf(i) !== -1);
-      el.classList.toggle('hint', prefs.hint);
       el.setAttribute('aria-label', up ? cardName(t.card) : 'Verdeckte Karte');
       if (up && !app.faceUp[i]) {
         el.classList.remove('reveal');
@@ -294,8 +294,7 @@
     var n = Math.min(3, g.stock.length);
     var html = '';
     for (var i = 0; i < n; i++) {
-      var nudge = prefs.hint && !app.locked && g.status === 'playing' && i === n - 1 && playable.length === 0 && !G.canPlayBonus(g) ? ' nudge' : '';
-      html += '<div class="card back stock-card' + nudge + '" style="left:' + ((STOCK_X - i * 0.035) * cw) + 'px;top:' + ((PILE_TOP - i * 0.035) * cw) + 'px;z-index:' + (30 + i) + '"></div>';
+      html += '<div class="card back stock-card" style="left:' + ((STOCK_X - i * 0.035) * cw) + 'px;top:' + ((PILE_TOP - i * 0.035) * cw) + 'px;z-index:' + (30 + i) + '"></div>';
     }
     sc.innerHTML = html;
     $('#stock').classList.toggle('empty', g.stock.length === 0);
@@ -320,7 +319,7 @@
       var isTop = b === g.bonus.length - 1;
       var off = (g.bonus.length - 1 - b) * 0.05;
       bh += '<div class="' + cardClass(bc) + ' bonus-card' + (isTop ? ' bonus-top open' : ' back') +
-        (isTop && bonusOk ? ' playable' : '') + (prefs.hint ? ' hint' : '') + '" style="left:' + ((BONUS_X + off) * cw) + 'px;top:' + ((PILE_TOP - off) * cw) + 'px;z-index:' + (30 + b) + '"' +
+        (isTop && bonusOk ? ' playable' : '') + '" style="left:' + ((BONUS_X + off) * cw) + 'px;top:' + ((PILE_TOP - off) * cw) + 'px;z-index:' + (30 + b) + '"' +
         (isTop ? ' aria-label="Bonuskarte ' + cardName(bc) + '"' : '') + '>' + faceHTML(bc) + '</div>';
     }
     bp.innerHTML = bh;
@@ -332,7 +331,6 @@
     st.textContent = g.streak;
     st.classList.toggle('hot', g.streak >= 5);
     $('#hud-left').textContent = G.remaining(g);
-    $('#btn-undo').disabled = app.mode !== 'solo' || g.history.length === 0;
   }
 
   // ------------------------------------------------------------------
@@ -484,15 +482,6 @@
     afterMove();
   }
 
-  function onUndo() {
-    if (app.mode !== 'solo' || !app.game) return;
-    if (G.undo(app.game)) {
-      app.endShown = false;
-      render();
-      sfx.pop();
-    }
-  }
-
   function afterMove() {
     var g = app.game;
     if (g.status === 'playing') return;
@@ -552,7 +541,6 @@
       '<div><b>' + wins + '/' + played + '</b><span>Siege</span></div>' +
       '</div>' +
       '<div class="actions">' +
-      (g.status !== 'won' ? '<button class="btn" data-act="undo">↶ Rückgängig</button>' : '') +
       '<button class="btn" data-act="replay">Gleiches Blatt</button>' +
       '<button class="btn primary" data-act="new">Neues Spiel</button>' +
       '</div>'
@@ -613,7 +601,6 @@
     else if (act === 'rules') showRules();
     else if (act === 'new') startSolo();
     else if (act === 'replay') startSolo(app.soloSeed);
-    else if (act === 'undo') { closeOverlay(); onUndo(); }
     else if (act === 'home') { closeOverlay(); app.mode = null; app.game = null; showScreen('home'); }
     else if (act === 'leave') { closeOverlay(); net.leave(); }
     else if (act === 'giveup') { closeOverlay(); net.send({ t: 'giveup' }); app.locked = true; render(); showWaiting(); }
@@ -782,7 +769,6 @@
     $('#emotes').classList.toggle('show', multi);
     $('#hud-round-wrap').style.display = multi ? '' : 'none';
     $('#hud-time-wrap').style.display = multi ? '' : 'none';
-    $('#btn-undo').style.display = multi ? 'none' : '';
     $('#btn-new').style.display = multi ? 'none' : '';
     $('#btn-giveup').style.display = multi ? '' : 'none';
   }
@@ -1069,7 +1055,6 @@
   $('#btn-leave').addEventListener('click', function () { net.leave(); });
 
   $('#btn-menu').addEventListener('click', showMenu);
-  $('#btn-undo').addEventListener('click', onUndo);
   $('#btn-new').addEventListener('click', function () { startSolo(); });
   $('#btn-giveup').addEventListener('click', function () {
     if (!app.locked && app.game && app.game.status === 'playing') confirmGiveUp();
@@ -1077,10 +1062,8 @@
   });
 
   function syncToggles() {
-    $('#btn-hint').classList.toggle('off', !prefs.hint);
     $('#btn-sound').textContent = prefs.sound ? '🔊' : '🔇';
   }
-  $('#btn-hint').addEventListener('click', function () { prefs.hint = !prefs.hint; savePrefs(); syncToggles(); render(); toast(prefs.hint ? 'Hilfe an' : 'Hilfe aus', 1000); });
   $('#btn-sound').addEventListener('click', function () { prefs.sound = !prefs.sound; savePrefs(); syncToggles(); if (prefs.sound) sfx.pop(); });
   syncToggles();
 
@@ -1091,8 +1074,6 @@
     if (overlayKind && overlayKind !== 'waiting') return;
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onStock(); }
     else if (e.key === 'b' || e.key === 'B') onBonus();
-    else if (e.key === 'z' || e.key === 'Z' || (e.key === 'Backspace')) onUndo();
-    else if (e.key === 'h' || e.key === 'H') $('#btn-hint').click();
     else if (e.key === 'm' || e.key === 'M') $('#btn-sound').click();
   });
 
